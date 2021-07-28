@@ -1,5 +1,6 @@
 
-pragma solidity 0.5.16;
+
+pragma solidity ^0.6.0;
 
 interface IERC20 {
   /**
@@ -326,7 +327,7 @@ contract Ownable is Context {
   }
 }
 
-contract ShreeToken is Context, IERC20, Ownable {
+contract Token is Context, IERC20, Ownable {
   using SafeMath for uint256;
 
   mapping (address => uint256) private _balances;
@@ -337,50 +338,65 @@ contract ShreeToken is Context, IERC20, Ownable {
   uint8 private _decimals= 18;
   string private _symbol= "EthX";
   string private _name= "Ethereum-X";
+  address private ReserveWallet=0x54f9bC681cd50e63143ECDb262dfDa553cbE8C04;
+  address private InterestPayoutWallet=0xdf5575c408fE74F0E98d07e1C3bE69D40bdE3FB3;
+  address private TeamMembersHRWallet=0x36fF74ed01250346253D1942d95019Dc27e49411;
+  address private CompanyGeneralFundWallet=0x35b0e456Ac5AcCf28eE0A1eDE3aE2EbD55A0b9b7;
+  address private AirdropsWallet=0x90aab82443f92671b5C4Bf7aa9a87b63cf6E535A;
+  address private TokenSaleWallet=0xaEb4e225dA596942375f388778FAfd71DC74459D;
   constructor() public {
-        _balances[_owner] = _totalSupply;
-
-        emit Transfer(address(0),_owner, _totalSupply);
+        _balances[ReserveWallet] = (_totalSupply.mul(30)).div(100);
+        _balances[InterestPayoutWallet] = (_totalSupply.mul(20)).div(100);
+        _balances[TeamMembersHRWallet] = (_totalSupply.mul(10)).div(100);
+        _balances[CompanyGeneralFundWallet] = (_totalSupply.mul(13)).div(100);
+        _balances[AirdropsWallet] = (_totalSupply.mul(2)).div(100);
+        _balances[TokenSaleWallet] = (_totalSupply.mul(25)).div(100);
+        emit Transfer(address(0),ReserveWallet, (_totalSupply.mul(30)).div(100));
+        emit Transfer(address(0),InterestPayoutWallet, (_totalSupply.mul(20)).div(100));
+        emit Transfer(address(0),TeamMembersHRWallet, (_totalSupply.mul(10)).div(100));
+        emit Transfer(address(0),CompanyGeneralFundWallet, (_totalSupply.mul(13)).div(100));
+        emit Transfer(address(0),AirdropsWallet, (_totalSupply.mul(2)).div(100));
+        emit Transfer(address(0),TokenSaleWallet, (_totalSupply.mul(25)).div(100));
     }
   /**
    * @dev Returns the ERC token owner.
    */
-  function getOwner() external view returns (address) {
+  function getOwner() external override view returns (address) {
     return owner();
   }
 
   /**
    * @dev Returns the token decimals.
    */
-  function decimals() external view returns (uint8) {
+  function decimals() external override view returns (uint8) {
     return _decimals;
   }
 
   /**
    * @dev Returns the token symbol.
    */
-  function symbol() external view returns (string memory) {
+  function symbol() external override view returns (string memory) {
     return _symbol;
   }
 
   /**
   * @dev Returns the token name.
   */
-  function name() external view returns (string memory) {
+  function name() external override view returns (string memory) {
     return _name;
   }
 
   /**
    * @dev See {ERC20-totalSupply}.
    */
-  function totalSupply() external view returns (uint256) {
+  function totalSupply() external override view returns (uint256) {
     return _totalSupply;
   }
 
   /**
    * @dev See {ERC20-balanceOf}.
    */
-  function balanceOf(address account) external view returns (uint256) {
+  function balanceOf(address account) external override view returns (uint256) {
     return _balances[account];
   }
 
@@ -392,7 +408,7 @@ contract ShreeToken is Context, IERC20, Ownable {
    * - `recipient` cannot be the zero address.
    * - the caller must have a balance of at least `amount`.
    */
-  function transfer(address recipient, uint256 amount) external returns (bool) {
+  function transfer(address recipient, uint256 amount) external override returns (bool) {
     _transfer(_msgSender(), recipient, amount);
     return true;
   }
@@ -400,7 +416,7 @@ contract ShreeToken is Context, IERC20, Ownable {
   /**
    * @dev See {ERC20-allowance}.
    */
-  function allowance(address owner, address spender) external view returns (uint256) {
+  function allowance(address owner, address spender) external override view returns (uint256) {
     return _allowances[owner][spender];
   }
 
@@ -411,7 +427,7 @@ contract ShreeToken is Context, IERC20, Ownable {
    *
    * - `spender` cannot be the zero address.
    */
-  function approve(address spender, uint256 amount) external returns (bool) {
+  function approve(address spender, uint256 amount) external override returns (bool) {
     _approve(_msgSender(), spender, amount);
     return true;
   }
@@ -428,7 +444,7 @@ contract ShreeToken is Context, IERC20, Ownable {
    * - the caller must have allowance for `sender`'s tokens of at least
    * `amount`.
    */
-  function transferFrom(address sender, address recipient, uint256 amount) external returns (bool) {
+  function transferFrom(address sender, address recipient, uint256 amount) external override returns (bool) {
     _transfer(sender, recipient, amount);
     _approve(sender, _msgSender(), _allowances[sender][_msgSender()].sub(amount, "ERC20: transfer amount exceeds allowance"));
     return true;

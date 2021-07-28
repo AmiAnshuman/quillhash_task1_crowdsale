@@ -1,7 +1,7 @@
 
 
 
-pragma solidity 0.5.16;
+pragma solidity ^0.6.0;
 
 
 
@@ -148,9 +148,7 @@ interface AggregatorV3Interface {
       uint256
     );
 
-  // getRoundData and latestRoundData should both raise "No data present"
-  // if they do not have data to report, instead of returning unset values
-  // which could be misinterpreted as actual reported values.
+
   function getRoundData(
     uint80 _roundId
   )
@@ -176,6 +174,8 @@ interface AggregatorV3Interface {
     );
 
 }
+
+
 contract Context {
 
     constructor () internal { }
@@ -237,22 +237,22 @@ contract Crowdsale is Ownable {
   using SafeMath for uint256;
 
 
-  ERC20 public token;
+  ERC20 public token;  // address of ERC20 token contract
 
 
-  address payable public  wallet;
+  address payable public  wallet;  // amount of ETH will be transferred to this wallet
 
-  uint256 public usdRaised;
+  uint256 public usdRaised; // amount of USD raised
   
-  AggregatorV3Interface internal priceFeed;
+  AggregatorV3Interface internal priceFeed; //oracle contract ot find latest price of ETH->USD
 
-  mapping(address => uint256) public contributions;
-  mapping(address => bool) public whitelist;
+  mapping(address => uint256) public contributions; //contributions of easch whitelited customer
+  mapping(address => bool) public whitelist; // list of whitelisted customer
   
   uint256 public openingTime;
   uint256 public closingTime;
   
-  bool public running=true;
+  bool public running=false; // need to start the ICO first
 
 
  
@@ -261,34 +261,41 @@ contract Crowdsale is Ownable {
 
   
   modifier isWhitelisted(address _beneficiary) {
-    require(whitelist[_beneficiary]);
+    require(whitelist[_beneficiary], "Only whitelisted customers can participate in ICO");
     _;
   }
   
 
   modifier onlyWhileOpen {
-    require(now >= openingTime && now <= closingTime);
+    require(now >= openingTime && now <= closingTime, "ICO openingTime and closingTime check");
     _;
   }
   
   modifier onlyWhileRunning {
-    require(running==true);
+    require(running==true, "Checking whether ICO is running or not");
     _;
   }
   
-    constructor () public {
+    constructor (address _token, address payable _wallet) public {
+        
+        require(_token!=address(0) && _wallet!=address(0), "Wallet and token address cannot be zero");
+        token= ERC20(_token);
+        wallet=_wallet;
         openingTime=now;
         closingTime=now+62 days;
-     priceFeed = AggregatorV3Interface(0x8A753747A1Fa494EC906cE90E9f37563A8AF630e);
+        priceFeed = AggregatorV3Interface(0x8A753747A1Fa494EC906cE90E9f37563A8AF630e);
   }
   
+  fallback () external payable {
+    buyTokens(msg.sender);
+  }
 
   function addToWhitelist(address _beneficiary) external onlyOwner {
     whitelist[_beneficiary] = true;
   }
 
   
-  function addManyToWhitelist(address[] calldata _beneficiaries) external onlyOwner {
+  function addManyToWhitelist(address[] memory _beneficiaries) external onlyOwner {
     for (uint256 i = 0; i < _beneficiaries.length; i++) {
       whitelist[_beneficiaries[i]] = true;
     }
@@ -299,14 +306,6 @@ contract Crowdsale is Ownable {
     whitelist[_beneficiary] = false;
   }
 
-  
-  
-    function () external payable {
-    buyTokens(msg.sender);
-  }
-
-  
-  
 
     function getLatestPrice() public view returns (int) {
         (
@@ -335,78 +334,76 @@ contract Crowdsale is Ownable {
     // calculate token amount to be created
     uint256 tokens = _getTokenAmount(weiAmount);
     
-    require(token.balanceOf(address(this))>=tokens);
+    require(token.balanceOf(address(this))>=tokens, "Number of tokens available in the contract or not");
 
-    // update state
+    // update how much usd has been raised in ICO
     usdRaised = usdRaised.add(BuyValue);
-
-    _processPurchase(_beneficiary, tokens);
+    
+    //bonus token the user will get
+    uint256 bonus=_bonusTransfer(tokens);
+    
+    //total tokens transferred to the user
+    _processPurchase(_beneficiary, tokens.add(bonus));
     
     emit TokenPurchase(
-      msg.sender,
+      address(this),
       _beneficiary,
       weiAmount,
-      tokens
+      tokens.add(bonus)
     );
-
+    
+    // user contributions updated
     _updatePurchasingState(_beneficiary, BuyValue);
-
+    
+    // ETh transferred from user to the token owner
     _forwardFunds();
-    _postValidatePurchase(_beneficiary, tokens);
   }
 
 
 
   function _preValidatePurchase(address _beneficiary, uint256 usdAmount) internal {
-    require(_beneficiary != address(0));
+    require(_beneficiary != address(0), "beneficiary address cannot be zero");
     require(usdAmount>=500, "Minimum value to buy is 500 per investor");
-    require(contributions[_beneficiary].add(usdAmount) <= 5000000);
+    require(contributions[_beneficiary].add(usdAmount) <= 5000000, "Maximum value to buy is 5000000 per investor");
   }
 
 
-
-  function _postValidatePurchase(address _beneficiary, uint256 _tokenAmount) internal {
+// function to allocate the bonus token to the user depending on the time of putrchase
+  function _bonusTransfer( uint256 _tokenAmount) internal returns(uint256) {
       
     uint256 bonusToken;
     if(now <= openingTime+15 days && now >= openingTime)
     {
         bonusToken=_tokenAmount/4;
-        token.transfer(_beneficiary, bonusToken);
+
     }
     
     else if(now <= openingTime+30 days && now > openingTime+15 days)
     {
         bonusToken=_tokenAmount/5;
-        token.transfer(_beneficiary, bonusToken);
+
     }
     else if(now <= openingTime+38 days && now >openingTime+30 days)
     {
         bonusToken=(_tokenAmount*15/100);
-        token.transfer(_beneficiary, bonusToken);
+
     }
     else if(now <= openingTime+46 days && now >openingTime+38 days)
     {
         bonusToken=_tokenAmount/10;
-        token.transfer(_beneficiary, bonusToken);
+
     }
     else if(now <= openingTime+54 days && now >openingTime+46 days)
     {
         bonusToken=_tokenAmount/20;
-        token.transfer(_beneficiary, bonusToken);
+
     }
-
+    return bonusToken;
   }
 
-
-
-  function _deliverTokens(address _beneficiary, uint256 _tokenAmount) internal {
-    token.transfer(_beneficiary, _tokenAmount);
-  }
-
-
-
+// function to transfer the token from contract to the user 
   function _processPurchase(address _beneficiary, uint256 _tokenAmount) internal {
-    _deliverTokens(_beneficiary, _tokenAmount);
+    token.transfer(_beneficiary, _tokenAmount);
   }
 
 
@@ -415,14 +412,17 @@ contract Crowdsale is Ownable {
     contributions[_beneficiary] = contributions[_beneficiary].add(usdAmount);
   }
 
-
+    
+    // function to convert eth to number of tokens
 
   function _getTokenAmount(uint256 _weiAmount) public view returns (uint256) {
     uint256 ethToUsd = uint256(getLatestPrice());
-    uint256 tokens = _weiAmount.mul(ethToUsd) / (0.001 * 10**26);
+    uint256 tokens = _weiAmount.mul(ethToUsd) / (0.001 * 10**8);
 
     return tokens;
   }
+  
+  // function to convert eth to usd
   
   function _getUSDAmount(uint256 _weiAmount) public view returns (uint256) {
     uint256 ethToUsd = uint256(getLatestPrice());
@@ -431,15 +431,27 @@ contract Crowdsale is Ownable {
     return minBuyValue;
   }
     
+    
+    // function to stopICO
   function stopICO() onlyOwner public {
     running=false;
   }
+  
+  //function to startICO
   function startICO() onlyOwner public {
     running=true;
   }
 
-
+    // function to transfer the fund from token buyer to owner address
   function _forwardFunds() internal  {
     wallet.transfer(msg.value);
   }
+  
+  
+    // Call when ICO contract need to be removed  
+  function self_Destruct () public payable onlyOwner {
+      uint256 _tokenAmount=token.balanceOf(address(this));
+      token.transfer(wallet, _tokenAmount);
+      selfdestruct( payable (address(this)));
+    }
 }
